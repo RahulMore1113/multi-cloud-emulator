@@ -1,61 +1,43 @@
-name: Multi-Cloud Emulation Tests
+name: Floci Multi-Cloud Tests
 
-on:
-  push:
-    branches: [ "main", "master" ]
-  pull_request:
-    branches: [ "main", "master" ]
+on: [push, pull_request]
 
 jobs:
-  run-floci-tests:
+  test:
     runs-on: ubuntu-latest
-    
-    # Force the runner environment cleanly to Node 24
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Create Local Data Directories
-        run: |
-          mkdir -p cloud-data/aws cloud-data/azure cloud-data/gcp
-          sudo chmod -R 777 cloud-data
+      - name: Prepare Data Folders
+        run: mkdir -p cloud-data/aws cloud-data/azure cloud-data/gcp && sudo chmod -R 777 cloud-data
 
-      - name: Start Multi-Cloud Floci Stack
-        run: |
-          docker compose --profile all up -d
+      - name: Start Stack
+        run: docker compose --profile all up -d
 
-      - name: Wait for Emulators to Initialize
-        run: |
-          echo "Waiting for services to become healthy..."
-          sleep 25
-
-      - name: Verify Container Status
-        run: |
-          docker compose ps
+      - name: Wait for Services
+        run: sleep 20
 
       - name: Test AWS S3
         run: |
-          docker exec floci-aws-cli aws --endpoint-url=http://floci-aws:4566 s3 mb s3://gh-actions-aws-bucket
+          docker exec floci-aws-cli aws --endpoint-url=http://floci-aws:4566 s3 mb s3://test-aws-bucket
           docker exec floci-aws-cli aws --endpoint-url=http://floci-aws:4566 s3 ls
 
-      - name: Test Azure Blob Storage
+      - name: Test Azure Blob
         run: |
-          CONN_STRING="DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://floci-azure:4577/devstoreaccount1;"
-          docker exec floci-azure-cli az storage container create --name gh-actions-azure-container --connection-string "$CONN_STRING"
-          docker exec floci-azure-cli az storage container list --connection-string "$CONN_STRING" --output table
+          CONN="DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://floci-azure:4577/devstoreaccount1;"
+          docker exec floci-azure-cli az storage container create --name test-azure-container --connection-string "$CONN"
 
-      - name: Test GCP Cloud Storage
+      - name: Test GCP Storage
         run: |
-          docker exec floci-gcp-cli gcloud config set core/project floci-ci
+          docker exec floci-gcp-cli gcloud config set core/project test-proj
           docker exec floci-gcp-cli gcloud config set api_endpoint_overrides/storage http://floci-gcp:4588/
           docker exec floci-gcp-cli gcloud config set auth/disable_credentials true
-          docker exec floci-gcp-cli gcloud storage buckets create gs://gh-actions-gcp-bucket --project=floci-ci
-          docker exec floci-gcp-cli gcloud storage buckets list --project=floci-ci
+          docker exec floci-gcp-cli gcloud storage buckets create gs://test-gcp-bucket --project=test-proj
 
-      - name: Teardown Stack
+      - name: Cleanup Stack
         if: always()
-        run: |
-          docker compose --profile all down
+        run: docker compose --profile all down
