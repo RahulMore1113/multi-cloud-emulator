@@ -1,0 +1,113 @@
+name: floci-multi-cloud
+
+networks:
+  floci-network:
+    driver: bridge
+
+services:
+  # ==========================================
+  # FLOCI WEB UI (Always Running)
+  # ==========================================
+  floci-ui:
+    image: ${FLOCI_UI_IMAGE}
+    container_name: floci-ui
+    ports:
+      - "${UI_PORT}:4500"
+    networks:
+      - floci-network
+    environment:
+      - TZ=${TIMEZONE}
+      - FLOCI_ENDPOINT=http://floci-aws:4566
+      - FLOCI_AZURE_ENDPOINT=http://floci-azure:4577
+      - FLOCI_GCP_ENDPOINT=http://floci-gcp:4588
+      - FLOCI_AZURE_ACCOUNT_NAME=devstoreaccount1
+      - AWS_REGION=${AWS_DEFAULT_REGION}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+
+  # ==========================================
+  # AWS ENVIRONMENT
+  # ==========================================
+  floci-aws:
+    image: ${FLOCI_AWS_IMAGE}
+    container_name: floci-aws
+    profiles: ["aws", "all"]
+    ports:
+      - "${AWS_PORT}:${AWS_PORT}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./cloud-data/aws:/data
+    networks:
+      - floci-network
+    environment:
+      - FLOCI_STORAGE_MODE=hybrid
+      - TZ=${TIMEZONE}
+
+  floci-aws-cli:
+    image: ${AWS_CLI_IMAGE}
+    container_name: floci-aws-cli
+    profiles: ["aws", "all"]
+    entrypoint: ["tail", "-f", "/dev/null"]
+    depends_on:
+      - floci-aws
+    networks:
+      - floci-network
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+
+  # ==========================================
+  # AZURE ENVIRONMENT
+  # ==========================================
+  floci-azure:
+    image: ${FLOCI_AZURE_IMAGE}
+    container_name: floci-azure
+    profiles: ["azure", "all"]
+    ports:
+      - "${AZURE_PORT}:${AZURE_PORT}"
+    volumes:
+      - ./cloud-data/azure:/data
+    networks:
+      - floci-network
+    environment:
+      - FLOCI_STORAGE_MODE=hybrid
+      - TZ=${TIMEZONE}
+
+  floci-azure-cli:
+    image: ${AZURE_CLI_IMAGE}
+    container_name: floci-azure-cli
+    profiles: ["azure", "all"]
+    entrypoint: ["tail", "-f", "/dev/null"]
+    depends_on:
+      - floci-azure
+    networks:
+      - floci-network
+
+  # ==========================================
+  # GCP ENVIRONMENT
+  # ==========================================
+  floci-gcp:
+    image: ${FLOCI_GCP_IMAGE}
+    container_name: floci-gcp
+    profiles: ["gcp", "all"]
+    ports:
+      - "${GCP_PORT}:${GCP_PORT}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./cloud-data/gcp:/data
+    networks:
+      - floci-network
+    environment:
+      - FLOCI_STORAGE_MODE=hybrid
+      - TZ=${TIMEZONE}
+
+  floci-gcp-cli:
+    image: ${GCP_CLI_IMAGE}
+    container_name: floci-gcp-cli
+    profiles: ["gcp", "all"]
+    entrypoint: ["tail", "-f", "/dev/null"]
+    depends_on:
+      - floci-gcp
+    networks:
+      - floci-network
