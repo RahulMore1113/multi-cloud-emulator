@@ -9,6 +9,10 @@ on:
 jobs:
   run-floci-tests:
     runs-on: ubuntu-latest
+    
+    # Force the runner environment cleanly to Node 24
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: Checkout Repository
