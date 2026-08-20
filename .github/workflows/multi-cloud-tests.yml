@@ -14,14 +14,26 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Verify .env file exists
+      - name: Generate .env Configuration File
         run: |
-          if [ ! -f .env ]; then
-            echo "ERROR: .env file is missing from repository root!"
-            exit 1
-          else
-            echo ".env file found successfully."
-          fi
+          cat << EOF > .env
+          FLOCI_AWS_IMAGE=floci/floci:latest
+          FLOCI_AZURE_IMAGE=floci/floci-az:latest
+          FLOCI_GCP_IMAGE=floci/floci-gcp:latest
+          FLOCI_UI_IMAGE=floci/floci-ui:latest
+          AWS_CLI_IMAGE=amazon/aws-cli:latest
+          AZURE_CLI_IMAGE=mcr.microsoft.com/azure-cli:latest
+          GCP_CLI_IMAGE=google/cloud-sdk:alpine
+          AWS_PORT=4566
+          AZURE_PORT=4577
+          GCP_PORT=4588
+          UI_PORT=4500
+          AWS_ACCESS_KEY_ID=test
+          AWS_SECRET_ACCESS_KEY=test
+          AWS_DEFAULT_REGION=us-east-1
+          TIMEZONE=UTC
+          EOF
+          echo ".env file generated successfully."
 
       - name: Create Local Data Directories
         run: |
