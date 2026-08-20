@@ -14,33 +14,36 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up Docker Compose Profiles
+      - name: Create Local Data Directories
         run: |
-          echo "Setting up environment directories..."
           mkdir -p cloud-data/aws cloud-data/azure cloud-data/gcp
+          sudo chmod -R 777 cloud-data
 
       - name: Start Multi-Cloud Floci Stack
         run: |
           docker compose --profile all up -d
-          echo "Waiting for emulators to initialize..."
-          sleep 20
 
-      - name: Verify Container Health
+      - name: Wait for Emulators to Initialize
+        run: |
+          echo "Waiting for services to become healthy..."
+          sleep 25
+
+      - name: Verify Container Status
         run: |
           docker compose ps
 
-      - name: Test AWS (S3 & DynamoDB)
+      - name: Test AWS S3
         run: |
           docker exec floci-aws-cli aws --endpoint-url=http://floci-aws:4566 s3 mb s3://gh-actions-aws-bucket
           docker exec floci-aws-cli aws --endpoint-url=http://floci-aws:4566 s3 ls
 
-      - name: Test Azure (Blob Storage)
+      - name: Test Azure Blob Storage
         run: |
           CONN_STRING="DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://floci-azure:4577/devstoreaccount1;"
           docker exec floci-azure-cli az storage container create --name gh-actions-azure-container --connection-string "$CONN_STRING"
           docker exec floci-azure-cli az storage container list --connection-string "$CONN_STRING" --output table
 
-      - name: Test GCP (Cloud Storage)
+      - name: Test GCP Cloud Storage
         run: |
           docker exec floci-gcp-cli gcloud config set core/project floci-ci
           docker exec floci-gcp-cli gcloud config set api_endpoint_overrides/storage http://floci-gcp:4588/
