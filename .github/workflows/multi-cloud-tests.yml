@@ -14,6 +14,15 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Verify .env file exists
+        run: |
+          if [ ! -f .env ]; then
+            echo "ERROR: .env file is missing from repository root!"
+            exit 1
+          else
+            echo ".env file found successfully."
+          fi
+
       - name: Create Local Data Directories
         run: |
           mkdir -p cloud-data/aws cloud-data/azure cloud-data/gcp
