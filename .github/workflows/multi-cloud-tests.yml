@@ -1,0 +1,54 @@
+name: Multi-Cloud Emulation Tests
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  run-floci-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Compose Profiles
+        run: |
+          echo "Setting up environment directories..."
+          mkdir -p cloud-data/aws cloud-data/azure cloud-data/gcp
+
+      - name: Start Multi-Cloud Floci Stack
+        run: |
+          docker compose --profile all up -d
+          echo "Waiting for emulators to initialize..."
+          sleep 20
+
+      - name: Verify Container Health
+        run: |
+          docker compose ps
+
+      - name: Test AWS (S3 & DynamoDB)
+        run: |
+          docker exec floci-aws-cli aws --endpoint-url=http://floci-aws:4566 s3 mb s3://gh-actions-aws-bucket
+          docker exec floci-aws-cli aws --endpoint-url=http://floci-aws:4566 s3 ls
+
+      - name: Test Azure (Blob Storage)
+        run: |
+          CONN_STRING="DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://floci-azure:4577/devstoreaccount1;"
+          docker exec floci-azure-cli az storage container create --name gh-actions-azure-container --connection-string "$CONN_STRING"
+          docker exec floci-azure-cli az storage container list --connection-string "$CONN_STRING" --output table
+
+      - name: Test GCP (Cloud Storage)
+        run: |
+          docker exec floci-gcp-cli gcloud config set core/project floci-ci
+          docker exec floci-gcp-cli gcloud config set api_endpoint_overrides/storage http://floci-gcp:4588/
+          docker exec floci-gcp-cli gcloud config set auth/disable_credentials true
+          docker exec floci-gcp-cli gcloud storage buckets create gs://gh-actions-gcp-bucket --project=floci-ci
+          docker exec floci-gcp-cli gcloud storage buckets list --project=floci-ci
+
+      - name: Teardown Stack
+        if: always()
+        run: |
+          docker compose --profile all down
